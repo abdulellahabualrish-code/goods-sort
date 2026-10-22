@@ -1,0 +1,366 @@
+<title>رفوف البضائع</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Changa:wght@600;800&family=Tajawal:wght@400;500;700;800&display=swap">
+<style>
+/* Layout: one-screen shop board. Thin status bar on top, a wooden lattice of shelves in the middle, a tool strip at the bottom. */
+:root{
+  --bg:#1a2233;
+  --bg-deep:#111827;
+  --cubby:#243044;
+  --cubby-edge:#1b2537;
+  --wood:#e2b073;
+  --wood-mid:#c58b47;
+  --wood-dark:#8d5a27;
+  --ink:#f6efe3;
+  --muted:#a7b0c3;
+  --accent:#ffb84d;
+  --accent-ink:#2a1a04;
+  --sold:#e23f3f;
+  --good:#5fd27a;
+  --font-display:'Changa','Tajawal','Segoe UI',system-ui,sans-serif;
+  --font-body:'Tajawal','Segoe UI',system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);
+  background-image:radial-gradient(ellipse at top,#263352 0%,var(--bg) 55%,var(--bg-deep) 100%);
+  -webkit-tap-highlight-color:transparent;
+}
+.app{
+  min-height:100%;display:flex;flex-direction:column;gap:12px;
+  padding-block:10px 16px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  max-width:820px;margin-inline:auto;
+}
+/* top bar */
+.bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:8px}
+.brand h1{font-family:var(--font-display);font-weight:800;font-size:1.45rem;margin:0;letter-spacing:.5px;color:var(--accent);text-shadow:0 2px 0 #7a4a0a}
+.brand small{color:var(--muted);font-size:.8rem}
+.stats{display:flex;gap:6px}
+.stat{background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:4px 10px;min-width:64px;text-align:center}
+.stat b{display:block;font-family:var(--font-display);font-size:1.15rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat span{font-size:.7rem;color:var(--muted);letter-spacing:.3px}
+
+/* board */
+.board-wrap{flex:1;display:flex;justify-content:center;align-items:flex-start}
+.board{
+  --cols:4;
+  width:100%;max-width:calc(var(--cols) * 128px);
+  display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:5px;
+  padding:7px;border-radius:12px;
+  background:linear-gradient(180deg,var(--wood) 0%,var(--wood-mid) 100%);
+  box-shadow:0 10px 30px rgba(0,0,0,.45),inset 0 2px 0 rgba(255,255,255,.35),inset 0 -3px 0 var(--wood-dark);
+}
+.shelf{
+  position:relative;
+  --size:calc(min(100vw - 32px, var(--cols) * 128px) / var(--cols));
+  height:calc(var(--size) * .78);
+  background:linear-gradient(180deg,var(--cubby-edge),var(--cubby) 30%);
+  border-radius:5px;
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;min-width:0;
+  padding:4px 3px 7px;cursor:pointer;
+  box-shadow:inset 0 6px 10px rgba(0,0,0,.35);
+  user-select:none;
+}
+.shelf::after{ /* plank */
+  content:"";position:absolute;left:0;right:0;bottom:0;height:7px;border-radius:0 0 5px 5px;
+  background:linear-gradient(180deg,var(--wood) 0,var(--wood-mid) 60%,var(--wood-dark) 100%);
+}
+.shelf.full{box-shadow:inset 0 6px 10px rgba(0,0,0,.35),0 0 0 2px rgba(255,255,255,.06)}
+.shelf.target{box-shadow:inset 0 0 0 2px var(--accent),inset 0 6px 10px rgba(0,0,0,.35)}
+.slot{min-width:0;
+  display:flex;justify-content:center;align-items:flex-end;height:100%;
+  font-size:calc(var(--size) * .30);line-height:1;
+  transition:transform .15s ease;
+  filter:drop-shadow(0 3px 2px rgba(0,0,0,.45));
+}
+.slot.sel{transform:translateY(calc(var(--size) * -.14)) scale(1.18);filter:drop-shadow(0 0 6px var(--accent)) drop-shadow(0 5px 4px rgba(0,0,0,.5))}
+.slot.land{animation:land .28s ease-out}
+@keyframes land{0%{transform:translateY(-40%) scale(.6);opacity:.3}70%{transform:translateY(5%) scale(1.08)}100%{transform:none}}
+.shelf.match .slot{animation:burst .45s ease-in forwards}
+@keyframes burst{0%{transform:scale(1)}40%{transform:scale(1.3) rotate(-8deg)}100%{transform:scale(0) rotate(20deg);opacity:0}}
+.stamp{
+  position:absolute;inset:3px 3px 9px;border-radius:4px;
+  display:grid;place-items:center;
+  background:var(--sold);color:#fff;font-family:var(--font-display);font-weight:800;
+  font-size:calc(var(--size) * .21);letter-spacing:1px;
+  border:2px dashed rgba(255,255,255,.75);outline:3px solid var(--sold);
+  transform:rotate(-8deg) scale(.4);opacity:0;animation:stamp .55s cubic-bezier(.2,1.6,.4,1) forwards;
+  pointer-events:none;
+}
+@keyframes stamp{to{transform:rotate(-6deg) scale(1);opacity:1}}
+.stamp.out{animation:stampout .25s ease-in forwards}
+@keyframes stampout{to{opacity:0;transform:scale(.8)}}
+
+/* tools */
+.tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+button{
+  font-family:var(--font-body);font-weight:700;font-size:.95rem;
+  border:0;border-radius:12px;padding:10px 16px;cursor:pointer;color:var(--ink);
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  display:inline-flex;align-items:center;gap:6px;
+}
+button:hover{background:rgba(255,255,255,.14)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.4;cursor:default}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:#c98524;box-shadow:0 3px 0 #a86a12}
+button.primary:hover{background:#ffc46a}
+.hint{color:var(--muted);font-size:.85rem;text-align:center;margin:0}
+
+/* overlays */
+.overlay{position:fixed;inset:0;background:rgba(10,14,22,.72);display:grid;place-items:center;padding:20px;z-index:20;backdrop-filter:blur(3px)}
+.card{
+  background:linear-gradient(180deg,#2a3650,#1c2538);border:1px solid rgba(255,255,255,.12);
+  border-radius:18px;padding:26px 24px;max-width:360px;width:100%;text-align:center;
+  box-shadow:0 20px 50px rgba(0,0,0,.5);
+}
+.card h2{font-family:var(--font-display);font-size:1.7rem;margin:0 0 6px;color:var(--accent)}
+.card p{margin:0 0 16px;color:var(--muted)}
+.stars{font-size:2rem;letter-spacing:4px;margin-bottom:10px}
+.stars .off{opacity:.25}
+.card .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+@media (prefers-reduced-motion:reduce){.slot,.stamp,.shelf.match .slot,.slot.land{animation:none;transition:none}}
+</style>
+
+<div class="app" dir="rtl">
+  <div class="bar">
+    <div class="brand"><h1>رفوف البضائع</h1><small>رتّب 3 متشابهة على رف واحد</small></div>
+    <div class="stats">
+      <div class="stat"><b id="lvl">1</b><span>المستوى</span></div>
+      <div class="stat"><b id="moves">0</b><span>حركة</span></div>
+      <div class="stat"><b id="left">0</b><span>متبقي</span></div>
+    </div>
+  </div>
+
+  <div class="board-wrap"><div class="board" id="board"></div></div>
+
+  <p class="hint" id="hint">اضغط منتجاً ثم اضغط رفاً فيه مكان فاضي</p>
+  <div class="tools">
+    <button id="undo" type="button">↶ تراجع</button>
+    <button id="shuffle" type="button">🔀 خلط</button>
+    <button id="restart" type="button">↻ إعادة</button>
+    <button id="sound" type="button">🔊 صوت</button>
+  </div>
+</div>
+
+<div class="overlay" id="win" hidden>
+  <div class="card">
+    <h2>نفذت البضاعة!</h2>
+    <div class="stars" id="stars"></div>
+    <p id="winText"></p>
+    <div class="row"><button class="primary" id="next" type="button">المستوى التالي ←</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="stuck" hidden>
+  <div class="card">
+    <h2>الرفوف ممتلئة</h2>
+    <p>ما فيه مكان فاضي لأي حركة. تراجع خطوة أو ابدأ المستوى من جديد.</p>
+    <div class="row">
+      <button class="primary" id="stuckUndo" type="button">↶ تراجع</button>
+      <button id="stuckRestart" type="button">↻ إعادة المستوى</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+const ITEMS=['🥤','🧃','🍌','🍎','🍍','🥦','🍊','🧸','🌼','🍫','🥑','🍉','🍓','🍞','🧴','🥫','🍿','🌭','🍇','🍋','🥕','🍩','🧁','🪥','🧻','🍬','🥛','☕','🕯️','🍯','🧀','🥐'];
+const $=id=>document.getElementById(id);
+const board=$('board');
+let S=null, busy=false, sel=null, history=[];
+let soundOn=true;
+try{soundOn=localStorage.getItem('goods-sound')!=='off'}catch(e){}
+
+/* ---------- audio ---------- */
+let ctx=null;
+function beep(f,d,type,vol){
+  if(!soundOn)return;
+  try{
+    ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type=type||'sine';o.frequency.value=f;
+    g.gain.setValueAtTime(vol||.08,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+d);
+    o.connect(g).connect(ctx.destination);o.start();o.stop(ctx.currentTime+d);
+  }catch(e){}
+}
+const sfx={
+  pick:()=>beep(520,.08,'triangle'),
+  drop:()=>beep(330,.1,'triangle'),
+  match:()=>{beep(660,.12,'square',.05);setTimeout(()=>beep(880,.12,'square',.05),90);setTimeout(()=>beep(1180,.2,'square',.05),180)},
+  win:()=>[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.25,'sine',.1),i*120)),
+};
+
+/* ---------- level generation ---------- */
+function cfg(n){
+  const cols=n<4?4:n<8?5:6;
+  const rows=Math.min(4+Math.floor((n-1)/2),8);
+  const shelves=cols*rows;
+  const triples=Math.floor(shelves*3*0.68/3);
+  const kinds=Math.min(ITEMS.length,Math.max(4,Math.floor(triples/(n<4?2:1.6))));
+  return {cols,rows,shelves,triples,kinds};
+}
+function shuffleArr(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function deal(items,shelfCount){
+  const slots=shuffleArr([...Array(shelfCount*3).keys()]);
+  const shelves=Array.from({length:shelfCount},()=>[]);
+  items.forEach((k,i)=>shelves[Math.floor(slots[i]/3)].push(k));
+  fixTriples(shelves);
+  return shelves;
+}
+function isTriple(s){return s.length===3&&s[0]===s[1]&&s[1]===s[2]}
+function fixTriples(shelves){
+  for(let guard=0;guard<200;guard++){
+    const i=shelves.findIndex(isTriple);
+    if(i<0)return;
+    const cands=[];
+    shelves.forEach((s,j)=>s.forEach((k,idx)=>{if(k!==shelves[i][0])cands.push([j,idx])}));
+    if(!cands.length)return;
+    const [j,idx]=cands[Math.floor(Math.random()*cands.length)];
+    [shelves[i][0],shelves[j][idx]]=[shelves[j][idx],shelves[i][0]];
+  }
+}
+function newLevel(n){
+  const c=cfg(n);
+  const pool=shuffleArr([...ITEMS]).slice(0,c.kinds);
+  const items=[];
+  for(let t=0;t<c.triples;t++){const k=pool[t%pool.length];items.push(k,k,k)}
+  S={level:n,cols:c.cols,shelves:deal(shuffleArr(items),c.shelves),moves:0,par:c.triples*3};
+  sel=null;history=[];busy=false;
+  $('win').hidden=true;$('stuck').hidden=true;
+  render();
+}
+
+/* ---------- render ---------- */
+function remaining(){return S.shelves.reduce((a,s)=>a+s.length,0)/3}
+function render(){
+  board.style.setProperty('--cols',S.cols);
+  const frag=document.createDocumentFragment();
+  S.shelves.forEach((s,si)=>{
+    const el=document.createElement('div');
+    el.className='shelf'+(s.length===3?' full':'')+(sel&&sel.shelf!==si&&s.length<3?' target':'');
+    el.dataset.shelf=si;
+    for(let i=0;i<3;i++){
+      const sl=document.createElement('div');
+      sl.className='slot'+(sel&&sel.shelf===si&&sel.idx===i?' sel':'');
+      sl.dataset.idx=i;
+      sl.textContent=s[i]||'';
+      el.appendChild(sl);
+    }
+    frag.appendChild(el);
+  });
+  board.replaceChildren(frag);
+  $('lvl').textContent=S.level;
+  $('moves').textContent=S.moves;
+  $('left').textContent=remaining();
+  $('undo').disabled=!history.length;
+  $('hint').textContent=sel?'اختر رفاً فيه مكان فاضي':'اضغط منتجاً ثم اضغط رفاً فيه مكان فاضي';
+}
+
+/* ---------- interaction ---------- */
+board.addEventListener('click',e=>{
+  if(busy)return;
+  const shelfEl=e.target.closest('.shelf');if(!shelfEl)return;
+  const si=+shelfEl.dataset.shelf;
+  const slotEl=e.target.closest('.slot');
+  const idx=slotEl?+slotEl.dataset.idx:-1;
+  const hasItem=idx>=0&&idx<S.shelves[si].length;
+
+  if(sel&&sel.shelf===si){
+    if(hasItem&&idx!==sel.idx){sel={shelf:si,idx};sfx.pick()}else sel=null;
+    render();return;
+  }
+  if(sel){
+    if(S.shelves[si].length<3){move(sel.shelf,sel.idx,si);return}
+    if(hasItem){sel={shelf:si,idx};sfx.pick();render();return}
+    return;
+  }
+  if(hasItem){sel={shelf:si,idx};sfx.pick();render()}
+});
+
+function move(from,idx,to){
+  history.push({shelves:S.shelves.map(s=>s.slice()),moves:S.moves});
+  if(history.length>60)history.shift();
+  const k=S.shelves[from].splice(idx,1)[0];
+  S.shelves[to].push(k);
+  S.moves++;sel=null;sfx.drop();
+  render();
+  const landed=board.children[to].children[S.shelves[to].length-1];
+  landed.classList.add('land');
+  if(isTriple(S.shelves[to]))clearShelf(to);
+  else checkStuck();
+}
+function clearShelf(si){
+  busy=true;sfx.match();
+  const el=board.children[si];
+  el.classList.add('match');
+  setTimeout(()=>{
+    S.shelves[si]=[];
+    const stamp=document.createElement('div');stamp.className='stamp';stamp.textContent='نفذت';
+    el.classList.remove('match');
+    [...el.children].forEach(c=>c.textContent='');
+    el.appendChild(stamp);
+    $('left').textContent=remaining();
+    setTimeout(()=>{
+      stamp.classList.add('out');
+      setTimeout(()=>{busy=false;render();if(remaining()===0)win();else checkStuck()},220);
+    },520);
+  },420);
+}
+function checkStuck(){
+  if(S.shelves.every(s=>s.length===3)){$('stuck').hidden=false}
+}
+function win(){
+  sfx.win();
+  const r=S.moves/S.par;
+  const n=r<=0.8?3:r<=1.2?2:1;
+  $('stars').innerHTML=[1,2,3].map(i=>`<span class="${i<=n?'':'off'}">★</span>`).join('');
+  $('winText').textContent=`أنهيت المستوى ${S.level} في ${S.moves} حركة`;
+  $('win').hidden=false;
+  try{
+    const best=+(localStorage.getItem('goods-level')||1);
+    if(S.level+1>best)localStorage.setItem('goods-level',S.level+1);
+  }catch(e){}
+}
+function undo(){
+  if(busy||!history.length)return;
+  const h=history.pop();
+  S.shelves=h.shelves;S.moves=h.moves;sel=null;
+  $('stuck').hidden=true;render();
+}
+function reshuffle(){
+  if(busy)return;
+  history.push({shelves:S.shelves.map(s=>s.slice()),moves:S.moves});
+  const items=shuffleArr(S.shelves.flat());
+  S.shelves=deal(items,S.shelves.length);
+  sel=null;$('stuck').hidden=true;sfx.drop();render();
+  checkStuck();
+}
+
+$('undo').onclick=undo;
+$('stuckUndo').onclick=undo;
+$('shuffle').onclick=reshuffle;
+$('restart').onclick=()=>newLevel(S.level);
+$('stuckRestart').onclick=()=>newLevel(S.level);
+$('next').onclick=()=>newLevel(S.level+1);
+function paintSound(){$('sound').textContent=soundOn?'🔊 صوت':'🔇 صامت'}
+$('sound').onclick=()=>{soundOn=!soundOn;try{localStorage.setItem('goods-sound',soundOn?'on':'off')}catch(e){}paintSound()};
+paintSound();
+
+/* ---------- boot ---------- */
+function start(data){
+  if(data&&data.S&&data.S.shelves){S=data.S;history=data.history||[];sel=null;busy=false;render();if(remaining()===0)win();return}
+  let lvl=1;try{lvl=+(localStorage.getItem('goods-level')||1)||1}catch(e){}
+  newLevel(lvl);
+}
+try{window.claude?.hot?.snapshot?.(()=>({S,history}))}catch(e){}
+if(window.claude?.hot?.ready)window.claude.hot.ready(start);else start(window.claude?.hot?.data??{});
+})();
+</script>
