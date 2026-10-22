@@ -51,7 +51,7 @@ body{
 .board-wrap{flex:1;display:flex;justify-content:center;align-items:flex-start}
 .board{
   --cols:4;
-  width:100%;max-width:calc(var(--cols) * 128px);
+  width:100%;max-width:calc(var(--cols) * 150px);
   display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:5px;
   padding:7px;border-radius:12px;
   background:linear-gradient(180deg,var(--wood) 0%,var(--wood-mid) 100%);
@@ -59,12 +59,12 @@ body{
 }
 .shelf{
   position:relative;
-  --size:calc(min(100vw - 32px, var(--cols) * 128px) / var(--cols));
-  height:calc(var(--size) * .78);
+  --size:calc(min(100vw - 32px, var(--cols) * 150px) / var(--cols));
+  height:calc(var(--size) * .7);
   background:linear-gradient(180deg,var(--cubby-edge),var(--cubby) 30%);
   border-radius:5px;
   display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;min-width:0;
-  padding:4px 3px 7px;cursor:pointer;
+  padding:4px 2px 8px;cursor:pointer;
   box-shadow:inset 0 6px 10px rgba(0,0,0,.35);
   user-select:none;
 }
@@ -85,6 +85,9 @@ body{
 .slot.lifted{opacity:.2;filter:none}
 .shelf.over{box-shadow:inset 0 0 0 3px var(--good),inset 0 6px 10px rgba(0,0,0,.35);background:linear-gradient(180deg,#1f3a2d,#223b30 30%)}
 .ghost{position:fixed;left:0;top:0;z-index:30;pointer-events:none;line-height:1;filter:drop-shadow(0 0 8px var(--accent)) drop-shadow(0 8px 6px rgba(0,0,0,.55));will-change:transform}
+.tile{display:block;width:97%;aspect-ratio:1;border-radius:24%;background-size:cover;background-position:center;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.5);background-color:#3a4660}
+.ghost .tile{width:100%}
+.slot.sel .tile{border-color:var(--accent)}
 .board{touch-action:none}
 @keyframes land{0%{transform:translateY(-40%) scale(.6);opacity:.3}70%{transform:translateY(5%) scale(1.08)}100%{transform:none}}
 .shelf.match .slot{animation:burst .45s ease-in forwards}
@@ -175,7 +178,8 @@ button.primary:hover{background:#ffc46a}
 
 <script>
 (function(){
-const ITEMS=['🥤','🧃','🍌','🍎','🍍','🥦','🍊','🧸','🌼','🍫','🥑','🍉','🍓','🍞','🧴','🥫','🍿','🌭','🍇','🍋','🥕','🍩','🧁','🪥','🧻','🍬','🥛','☕','🕯️','🍯','🧀','🥐'];
+const ITEMS=['img/p1.jpg','img/p2.jpg','img/p3.jpg','img/p4.jpg','img/p5.jpg','img/p6.jpg','img/p7.jpg','img/p8.jpg','img/p9.jpg'];
+const tile=k=>`<span class="tile" style="background-image:url('${k}')"></span>`;
 const $=id=>document.getElementById(id);
 const board=$('board');
 let S=null, busy=false, sel=null, history=[];
@@ -255,7 +259,7 @@ function render(){
       const sl=document.createElement('div');
       sl.className='slot'+(sel&&sel.shelf===si&&sel.idx===i?' sel':'');
       sl.dataset.idx=i;
-      sl.textContent=s[i]||'';
+      sl.innerHTML=s[i]?tile(s[i]):'';
       el.appendChild(sl);
     }
     frag.appendChild(el);
@@ -322,8 +326,8 @@ board.addEventListener('pointermove',e=>{
     drag.moved=true;sfx.pick();
     const src=board.children[drag.from].children[drag.idx];
     src.classList.add('lifted');
-    ghost.textContent=S.shelves[drag.from][drag.idx];
-    ghost.style.fontSize=getComputedStyle(src).fontSize;
+    ghost.innerHTML=tile(S.shelves[drag.from][drag.idx]);
+    const t=src.querySelector('.tile');ghost.style.width=(t?t.offsetWidth:40)+'px';
     ghost.hidden=false;
     if(sel){sel=null;render()}
   }
@@ -413,7 +417,7 @@ paintSound();
 
 /* ---------- boot ---------- */
 function start(data){
-  if(data&&data.S&&data.S.shelves){S=data.S;history=data.history||[];sel=null;busy=false;render();if(remaining()===0)win();return}
+  if(data&&data.S&&data.S.shelves&&data.S.shelves.flat().every(k=>ITEMS.includes(k))){S=data.S;history=data.history||[];sel=null;busy=false;render();if(remaining()===0)win();return}
   let lvl=1;try{lvl=+(localStorage.getItem('goods-level')||1)||1}catch(e){}
   newLevel(lvl);
 }
