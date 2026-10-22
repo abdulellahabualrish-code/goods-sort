@@ -82,6 +82,10 @@ body{
 }
 .slot.sel{transform:translateY(calc(var(--size) * -.14)) scale(1.18);filter:drop-shadow(0 0 6px var(--accent)) drop-shadow(0 5px 4px rgba(0,0,0,.5))}
 .slot.land{animation:land .28s ease-out}
+.slot.lifted{opacity:.2;filter:none}
+.shelf.over{box-shadow:inset 0 0 0 3px var(--good),inset 0 6px 10px rgba(0,0,0,.35);background:linear-gradient(180deg,#1f3a2d,#223b30 30%)}
+.ghost{position:fixed;left:0;top:0;z-index:30;pointer-events:none;line-height:1;filter:drop-shadow(0 0 8px var(--accent)) drop-shadow(0 8px 6px rgba(0,0,0,.55));will-change:transform}
+.board{touch-action:none}
 @keyframes land{0%{transform:translateY(-40%) scale(.6);opacity:.3}70%{transform:translateY(5%) scale(1.08)}100%{transform:none}}
 .shelf.match .slot{animation:burst .45s ease-in forwards}
 @keyframes burst{0%{transform:scale(1)}40%{transform:scale(1.3) rotate(-8deg)}100%{transform:scale(0) rotate(20deg);opacity:0}}
@@ -130,7 +134,7 @@ button.primary:hover{background:#ffc46a}
 
 <div class="app" dir="rtl">
   <div class="bar">
-    <div class="brand"><h1>رفوف البضائع</h1><small>رتّب 3 متشابهة على رف واحد</small></div>
+    <div class="brand"><h1>رفوف البضائع</h1><small>اسحب 3 متشابهة إلى رف واحد</small></div>
     <div class="stats">
       <div class="stat"><b id="lvl">1</b><span>المستوى</span></div>
       <div class="stat"><b id="moves">0</b><span>حركة</span></div>
@@ -261,18 +265,15 @@ function render(){
   $('moves').textContent=S.moves;
   $('left').textContent=remaining();
   $('undo').disabled=!history.length;
-  $('hint').textContent=sel?'اختر رفاً فيه مكان فاضي':'اضغط منتجاً ثم اضغط رفاً فيه مكان فاضي';
+  $('hint').textContent=sel?'اختر رفاً فيه مكان فاضي':'اسحب المنتج إلى رف فيه مكان فاضي';
 }
 
-/* ---------- interaction ---------- */
-board.addEventListener('click',e=>{
-  if(busy)return;
-  const shelfEl=e.target.closest('.shelf');if(!shelfEl)return;
-  const si=+shelfEl.dataset.shelf;
-  const slotEl=e.target.closest('.slot');
-  const idx=slotEl?+slotEl.dataset.idx:-1;
-  const hasItem=idx>=0&&idx<S.shelves[si].length;
+/* ---------- interaction: drag with pointer, tap as fallback ---------- */
+let drag=null;
+const ghost=document.createElement('div');ghost.className='ghost';ghost.hidden=true;document.body.appendChild(ghost);
 
+function tap(si,idx){
+  const hasItem=idx>=0&&idx<S.shelves[si].length;
   if(sel&&sel.shelf===si){
     if(hasItem&&idx!==sel.idx){sel={shelf:si,idx};sfx.pick()}else sel=null;
     render();return;
@@ -283,7 +284,63 @@ board.addEventListener('click',e=>{
     return;
   }
   if(hasItem){sel={shelf:si,idx};sfx.pick();render()}
+}
+function shelfAt(x,y){
+  const el=document.elementFromPoint(x,y);
+  const sh=el&&el.closest?el.closest('.shelf'):null;
+  return sh?+sh.dataset.shelf:-1;
+}
+function setOver(si){
+  if(drag.over===si)return;
+  if(drag.over>=0)board.children[drag.over].classList.remove('over');
+  drag.over=si;
+  if(si>=0&&si!==drag.from&&S.shelves[si].length<3)board.children[si].classList.add('over');
+  else drag.over=-1;
+}
+function endDrag(){
+  if(!drag)return;
+  if(drag.over>=0)board.children[drag.over].classList.remove('over');
+  const src=board.children[drag.from]&&board.children[drag.from].children[drag.idx];
+  if(src)src.classList.remove('lifted');
+  ghost.hidden=true;drag=null;
+}
+board.addEventListener('pointerdown',e=>{
+  if(busy||e.button>0)return;
+  const shelfEl=e.target.closest('.shelf');if(!shelfEl)return;
+  const si=+shelfEl.dataset.shelf;
+  const slotEl=e.target.closest('.slot');
+  const idx=slotEl?+slotEl.dataset.idx:-1;
+  const hasItem=idx>=0&&idx<S.shelves[si].length;
+  drag={from:si,idx,hasItem,x:e.clientX,y:e.clientY,moved:false,over:-1,id:e.pointerId};
+  try{board.setPointerCapture(e.pointerId)}catch(err){}
 });
+board.addEventListener('pointermove',e=>{
+  if(!drag||e.pointerId!==drag.id)return;
+  if(!drag.moved){
+    if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<6)return;
+    if(!drag.hasItem){drag=null;return}
+    drag.moved=true;sfx.pick();
+    const src=board.children[drag.from].children[drag.idx];
+    src.classList.add('lifted');
+    ghost.textContent=S.shelves[drag.from][drag.idx];
+    ghost.style.fontSize=getComputedStyle(src).fontSize;
+    ghost.hidden=false;
+    if(sel){sel=null;render()}
+  }
+  ghost.style.transform=`translate(${e.clientX}px,${e.clientY}px) translate(-50%,-70%) scale(1.35)`;
+  setOver(shelfAt(e.clientX,e.clientY));
+});
+function pointerEnd(e){
+  if(!drag||e.pointerId!==drag.id)return;
+  const d=drag;
+  if(!d.moved){endDrag();if(!busy)tap(d.from,d.idx);return}
+  const to=shelfAt(e.clientX,e.clientY);
+  endDrag();
+  if(to>=0&&to!==d.from&&S.shelves[to].length<3)move(d.from,d.idx,to);
+  else render();
+}
+board.addEventListener('pointerup',pointerEnd);
+board.addEventListener('pointercancel',()=>{if(drag){endDrag();render()}});
 
 function move(from,idx,to){
   history.push({shelves:S.shelves.map(s=>s.slice()),moves:S.moves});
